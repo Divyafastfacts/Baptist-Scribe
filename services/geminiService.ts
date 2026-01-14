@@ -3,7 +3,7 @@ import { SYSTEM_INSTRUCTION } from "../constants";
 import { SoapNote } from "../types";
 
 // Initialize the Gemini client
-const getAiClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY || 'FAKE_API_KEY_FOR_DEVELOPMENT' });
+const getAiClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // --- SOAP Generation ---
 
