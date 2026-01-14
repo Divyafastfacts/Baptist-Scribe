@@ -1,0 +1,7 @@
+{
+  "name": "BBH Medical Scribe AI",
+  "description": "A professional AI-powered medical scribe for Bangalore Baptist Hospital, capable of multilingual transcription and SOAP note generation.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
