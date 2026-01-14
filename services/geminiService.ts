@@ -17,7 +17,9 @@ export const generateSoapNote = async (
     Source Language: ${language}
     Raw Transcript: "${transcript}"
     
-    Generate the JSON output as specified in the system instructions.
+    Generate the JSON output. 
+    IMPORTANT: Only extract Subjective and Objective. 
+    Leave Assessment and Plan empty as the doctor will fill them manually.
   `;
 
   const response = await ai.models.generateContent({
@@ -36,12 +38,10 @@ export const generateSoapNote = async (
             properties: {
               subjective: { type: Type.STRING, description: "Patient's history, symptoms, and complaints." },
               objective: { type: Type.STRING, description: "Vitals, exam findings, and physical data." },
-              assessment: { type: Type.STRING, description: "Potential diagnosis or clinical impression." },
-              plan: { type: Type.STRING, description: "Medications, tests, and follow-up." },
+              // Assessment and Plan are intentionally omitted or made optional/empty here for manual entry
             },
-            required: ["subjective", "objective", "assessment", "plan"],
+            required: ["subjective", "objective"],
           },
-          raw_transcript_reference: { type: Type.STRING },
         },
         required: ["hospital", "patient_summary", "soap_details"],
       },
@@ -55,8 +55,13 @@ export const generateSoapNote = async (
 
   try {
     const data = JSON.parse(text);
-    // Extract the soap_details to match the application's SoapNote interface
-    return data.soap_details as SoapNote;
+    // Return extracted data, defaulting Assessment and Plan to empty strings
+    return {
+        subjective: data.soap_details.subjective || '',
+        objective: data.soap_details.objective || '',
+        assessment: '',
+        plan: ''
+    };
   } catch (e) {
     console.error("Failed to parse JSON", text);
     throw new Error("Failed to parse AI response");

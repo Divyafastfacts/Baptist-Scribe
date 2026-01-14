@@ -1,3 +1,4 @@
+
 export interface SoapNote {
   subjective: string;
   objective: string;
@@ -30,7 +31,15 @@ export enum SupportedLanguage {
   MALAYALAM = 'Malayalam',
 }
 
-export type AppView = 'DASHBOARD' | 'SCRIBE';
+export type AppView = 
+  | 'DASHBOARD' 
+  | 'SCRIBE' 
+  | 'MY_NOTES' 
+  | 'MY_TEMPLATES' 
+  | 'TEMPLATE_LIBRARY' 
+  | 'PREFERENCES' 
+  | 'SUPPORT' 
+  | 'TRAINING';
 
 export interface PatientDetails {
   name: string;

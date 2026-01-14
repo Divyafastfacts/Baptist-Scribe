@@ -5,10 +5,11 @@ import SoapEditor from './components/SoapEditor';
 import Sidebar from './components/Sidebar';
 import DashboardHome from './components/DashboardHome';
 import PatientDetailsModal from './components/PatientDetailsModal';
+import { MyNotesView, TemplatesView, PreferencesView, SupportView } from './components/MockViews';
 import { connectLiveSession, createPcmBlob, generateSoapNote } from './services/geminiService';
 import { EmrExportData, RecordingStatus, SoapNote, SupportedLanguage, AppView, PatientDetails } from './types';
 import { HOSPITAL_NAME, SUPPORTED_LANGUAGES, PRIMARY_COLOR } from './constants';
-import { Mic, Square, Sparkles, Globe } from 'lucide-react';
+import { Mic, Sparkles, Globe, Download, FileJson } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('DASHBOARD');
@@ -17,6 +18,9 @@ const App: React.FC = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<string>(SupportedLanguage.ENGLISH);
   const [timer, setTimer] = useState<number>(0);
   
+  // Verification State
+  const [isVerified, setIsVerified] = useState<boolean>(false);
+
   // Modal State
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [patientDetails, setPatientDetails] = useState<PatientDetails | null>(null);
@@ -71,8 +75,9 @@ const App: React.FC = () => {
     setSelectedLanguage(details.inputLanguage); // Sync language choice
     setIsPatientModalOpen(false);
     setCurrentView('SCRIBE');
-    // Note: We do not auto-start recording here unless explicitly requested, 
-    // but the user can now click Start Recording in the Scribe view.
+    // Reset verify state for new consult
+    setIsVerified(false);
+    setSoapData({ subjective: '', objective: '', assessment: '', plan: '' });
   };
 
   const startRecording = async () => {
@@ -83,6 +88,7 @@ const App: React.FC = () => {
       }
 
       setTranscript(''); 
+      setIsVerified(false); // Reset verification on new recording
       setStatus(RecordingStatus.RECORDING);
 
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
@@ -197,6 +203,7 @@ const App: React.FC = () => {
       return;
     }
     setStatus(RecordingStatus.PROCESSING);
+    setIsVerified(false); // Reset verification if regenerating
     try {
       if (status === RecordingStatus.RECORDING) {
         stopRecording();
@@ -215,6 +222,14 @@ const App: React.FC = () => {
     setSoapData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleVerify = () => {
+    if (!soapData.assessment || !soapData.plan) {
+        alert("Please complete the Assessment and Plan sections before verifying.");
+        return;
+    }
+    setIsVerified(true);
+  };
+
   const handleSyncToEmr = () => {
     const exportData: EmrExportData = {
       hospital_name: HOSPITAL_NAME,
@@ -225,15 +240,61 @@ const App: React.FC = () => {
       soap_note: soapData,
       status: "finalized"
     };
+
     console.log("Syncing to EMR:", JSON.stringify(exportData, null, 2));
-    alert("Synced to EMR successfully!");
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `BBH_EMR_Transfer_${patientDetails?.name || 'Unknown'}_${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    alert("Synced to EMR successfully! A JSON transfer file has been downloaded.");
+  };
+
+  const handleDownloadWord = () => {
+    const currentDate = new Date().toLocaleDateString('en-IN', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+    const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+    <head><meta charset='utf-8'><title>SOAP Note</title>
+    <style>body{font-family: 'Arial', sans-serif;} h1{color: #B71C1C;} .section{margin-bottom: 20px;} .label{font-weight:bold; color:#444;} .signature-block{margin-top:50px; text-align:right;} .signature{font-family:'Brush Script MT', cursive; font-size:24px; color:#1e3a8a; border-bottom:1px solid #ddd; display:inline-block; padding-bottom:5px; margin-bottom:5px;}</style>
+    </head><body>`;
+    
+    const body = `
+      <h1>${HOSPITAL_NAME}</h1>
+      <p><strong>Patient:</strong> ${patientDetails?.name || 'Unknown'} | <strong>Date:</strong> ${currentDate}</p>
+      <hr/>
+      <div class='section'><p class='label'>Subjective</p><p>${soapData.subjective.replace(/\n/g, '<br/>')}</p></div>
+      <div class='section'><p class='label'>Objective</p><p>${soapData.objective.replace(/\n/g, '<br/>')}</p></div>
+      <div class='section'><p class='label'>Assessment</p><p>${soapData.assessment.replace(/\n/g, '<br/>')}</p></div>
+      <div class='section'><p class='label'>Plan</p><p>${soapData.plan.replace(/\n/g, '<br/>')}</p></div>
+      
+      <div class='signature-block'>
+         <div class='signature'>Dr. Shaun Murphy</div>
+         <p><strong>Attending Physician</strong><br/><small>Digitally signed on ${currentDate}</small></p>
+      </div>
+    `;
+    
+    const footer = `</body></html>`;
+    const sourceHTML = header + body + footer;
+    
+    const blob = new Blob(['\ufeff', sourceHTML], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `SOAP_Note_${patientDetails?.name || 'Patient'}.doc`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleLoadDemo = () => {
-    // Stop any current activity
     stopRecording();
-    
-    // Set details for "Alex"
     setPatientDetails({
         name: "Alex",
         age: "24 Yrs",
@@ -263,9 +324,9 @@ const App: React.FC = () => {
         "Doctor: If the pain doesn't improve in a week, come back and we'll do an X-ray just to be sure."
     ];
 
-    // Start simulated recording
     setStatus(RecordingStatus.RECORDING);
     setTranscript(scriptLines[0]);
+    setIsVerified(false);
     
     let lineIndex = 1;
     demoIntervalRef.current = setInterval(() => {
@@ -279,16 +340,15 @@ const App: React.FC = () => {
             }
             setStatus(RecordingStatus.IDLE);
         }
-    }, 1500); // 1.5 seconds per line for pacing
+    }, 1500); 
   };
 
   // --- Render Scribe View ---
   const renderScribeView = () => (
     <div className="flex flex-col flex-1 bg-gray-100 min-h-0">
       {/* Action Toolbar */}
-      <div className="bg-white px-6 py-4 flex flex-wrap gap-4 items-center justify-between shadow-sm z-20 border-b border-gray-200 sticky top-16">
+      <div className="bg-white px-6 py-4 flex flex-wrap gap-4 items-center justify-between shadow-sm z-20 border-b border-gray-200 sticky top-16 print:hidden">
         <div className="flex items-center gap-4">
-          
            {/* Language Selector */}
            <div className="relative">
             <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
@@ -325,45 +385,95 @@ const App: React.FC = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
             {patientDetails && (
                 <div className="hidden md:flex flex-col items-end mr-4">
                     <span className="text-xs font-bold text-gray-700">{patientDetails.name}</span>
                     <span className="text-[10px] text-gray-500">{patientDetails.gender}, {patientDetails.age}</span>
                 </div>
             )}
+            
             <button
             onClick={handleGenerateSoap}
             disabled={!transcript || status === RecordingStatus.PROCESSING}
-            className="flex items-center gap-2 px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-all font-medium disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-all font-medium disabled:opacity-50"
             >
-            <Sparkles size={18} />
-            <span>{status === RecordingStatus.PROCESSING ? 'Generating...' : 'Generate SOAP'}</span>
+                <Sparkles size={18} />
+                <span className="hidden xl:inline">{status === RecordingStatus.PROCESSING ? 'Generating...' : 'Generate SOAP'}</span>
             </button>
+
+            {isVerified && (
+                <>
+                <div className="h-8 w-px bg-gray-200 mx-1"></div>
+
+                {/* Download Button (Direct) */}
+                <button 
+                    onClick={handleDownloadWord}
+                    disabled={!soapData.subjective}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium disabled:opacity-50 animate-in fade-in zoom-in-95 duration-200"
+                >
+                    <Download size={18} />
+                    <span className="hidden xl:inline">Download</span>
+                </button>
+
+                {/* Sync Button */}
+                <button 
+                    onClick={handleSyncToEmr}
+                    disabled={!soapData.subjective}
+                    className="flex items-center gap-2 px-4 py-2 text-white rounded-lg shadow-sm hover:opacity-90 transition-opacity font-medium disabled:opacity-50 animate-in fade-in zoom-in-95 duration-200"
+                    style={{ backgroundColor: PRIMARY_COLOR }}
+                >
+                    <FileJson size={18} />
+                    <span className="hidden xl:inline">Finalize</span>
+                </button>
+                </>
+            )}
         </div>
       </div>
 
       {/* Split Content with Sticky Transcript */}
-      <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <div className="lg:sticky lg:top-36 lg:h-[calc(100vh-10rem)]">
+      <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start print:block print:p-0">
+        <div className="lg:sticky lg:top-36 lg:h-[calc(100vh-10rem)] print:hidden">
            <TranscriptView 
              transcript={transcript} 
              isRecording={status === RecordingStatus.RECORDING} 
              onLoadDemo={handleLoadDemo}
            />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 print:w-full">
            <SoapEditor
              soapData={soapData}
              patientDetails={patientDetails}
              onUpdate={handleUpdateSoap}
-             onSync={handleSyncToEmr}
              isGenerating={status === RecordingStatus.PROCESSING}
+             isVerified={isVerified}
+             onVerify={handleVerify}
            />
         </div>
       </div>
     </div>
   );
+
+  const renderContent = () => {
+    switch (currentView) {
+      case 'SCRIBE':
+        return renderScribeView();
+      case 'MY_NOTES':
+        return <MyNotesView />;
+      case 'MY_TEMPLATES':
+        return <TemplatesView type="MY" />;
+      case 'TEMPLATE_LIBRARY':
+        return <TemplatesView type="LIBRARY" />;
+      case 'PREFERENCES':
+        return <PreferencesView />;
+      case 'SUPPORT':
+      case 'TRAINING':
+        return <SupportView />;
+      case 'DASHBOARD':
+      default:
+        return <DashboardHome onStartRecording={handleOpenConsult} />;
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-white">
@@ -386,11 +496,9 @@ const App: React.FC = () => {
         />
 
         {/* Content based on View */}
-        {currentView === 'DASHBOARD' ? (
-          <DashboardHome onStartRecording={handleOpenConsult} />
-        ) : (
-          renderScribeView()
-        )}
+        <div className="flex-1 overflow-x-hidden">
+            {renderContent()}
+        </div>
 
       </div>
       

@@ -1,6 +1,5 @@
 import React from 'react';
-import { Bell, User, ChevronDown } from 'lucide-react';
-import { SupportedLanguage } from '../types';
+import { Bell, ChevronDown } from 'lucide-react';
 
 interface HeaderProps {
   isRecording: boolean;
@@ -11,7 +10,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ isRecording, selectedLanguage, onLanguageChange, languages }) => {
   return (
-    <header className="w-full bg-white h-16 border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0 sticky top-0 z-30 shadow-sm">
+    <header className="w-full bg-white h-16 border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0 sticky top-0 z-30 shadow-sm print:hidden">
       
       {/* Left Side: Status / Context */}
       <div className="flex items-center space-x-4">
@@ -30,7 +29,7 @@ const Header: React.FC<HeaderProps> = ({ isRecording, selectedLanguage, onLangua
       <div className="flex items-center space-x-4">
         {/* Credits Pill */}
         <div className="hidden md:flex bg-teal-50 text-teal-700 px-3 py-1.5 rounded-lg text-xs font-semibold border border-teal-100 items-center">
-            <span>Credits Remaining: Unlimited</span>
+            <span>Credits Remaining: 20</span>
         </div>
 
         {/* Language Selector */}
@@ -58,9 +57,9 @@ const Header: React.FC<HeaderProps> = ({ isRecording, selectedLanguage, onLangua
 
         <button className="flex items-center space-x-2 text-gray-700 hover:bg-gray-50 p-1.5 rounded-lg transition-colors">
            <div className="h-8 w-8 bg-red-100 rounded-full flex items-center justify-center text-red-700 font-bold text-xs border border-red-200">
-             DR
+             SM
            </div>
-           <span className="text-sm font-medium hidden md:block">User</span>
+           <span className="text-sm font-medium hidden md:block">Dr. Shaun Murphy</span>
            <ChevronDown size={14} className="text-gray-400 hidden md:block" />
         </button>
       </div>
